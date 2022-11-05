@@ -1,4 +1,4 @@
-import { UnorderedSet } from "near-sdk-js";
+import { near, UnorderedSet } from "near-sdk-js";
 import { NFTContract } from "./contract";
 //add a token to the set of tokens an owner has
 export function internalAddTokenToOwner(contract: NFTContract, accountId: string, tokenId: string) {
@@ -15,6 +15,19 @@ export function internalAddTokenToOwner(contract: NFTContract, accountId: string
 
     //we insert that set for the given account ID. 
     contract.tokensPerOwner.set(accountId, tokenSet);
+}
+
+export function internalRemoveTokenFromOwner(contract: NFTContract, accountId: string, tokenId: string) {
+    let tokenSet = restoreOwners(contract.tokensPerOwner.get(accountId));
+    if (tokenSet == null) {
+        near.panicUtf8("Token should be owned by the sender");
+    }
+    tokenSet.remove(tokenId);
+    if (tokenSet.isEmpty()) {
+        contract.tokensPerOwner.remove(accountId);
+    } else {
+        contract.tokensPerOwner.set(accountId, tokenSet);
+    }
 }
 
 // Gets a collection and deserializes it into a set that can be used.
