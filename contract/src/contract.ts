@@ -1,6 +1,6 @@
 import { NearBindgen, near, call, view, LookupMap, UnorderedMap, initialize } from 'near-sdk-js';
 import { internalNftTokens, internalNFTTotalSupply, internalSupplyForOwner, internalTokensForOwner } from './enummeration';
-import { internalAddSale, internalGetSale, internalGetSales, internalOffer } from './marketplace';
+import { internalAddSale, internalGetSale, internalGetSales, internalOffer, internalRemoveSale, intrenalUpdatePrice } from './marketplace';
 import { internalNFTMetadata, JsonToken, NFTContractMetadata } from './metadata';
 import { internalMint } from './mint';
 import { assertOneYocto, internalNftTransfer } from './nft_core';
@@ -115,12 +115,13 @@ export class NFTContract {
     @call({payableFunction: true})
     remove_sale({sale_id}: {sale_id: string}):void {
         assertOneYocto();
-
+        internalRemoveSale({contract: this, sale_id});
     }
 
     @call({payableFunction: true})
     update_price({sale_id, price}: { sale_id: string, price: string}): void {
         assertOneYocto();
+        intrenalUpdatePrice({contract: this, sale_id, price});
     }
 
     @call({payableFunction: true})

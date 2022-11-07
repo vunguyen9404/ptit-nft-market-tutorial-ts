@@ -35,27 +35,14 @@ export function addSaleByOwner({contract, accountId, saleId}: { contract: NFTCon
 
 export function internalGetSales({contract}: {contract: NFTContract}): JsonSale[] {
     let sales = [];
-    for (let i = 0; i < contract.sales.keys.length; i++) {
-        let saleId = contract.sales.keys[i];
-        let sale = contract.sales.get(saleId) as Sale;
-        let tokenMetadata = contract.tokenMetadataById.get(sale.token_id);
 
-        let token = new JsonToken({
-            tokenId: sale.token_id,
-            ownerId: sale.owner_id,
-            metadata: tokenMetadata
-        });
-
-        let jsonSale = new JsonSale({
-            saleId,
-            ownerId: sale.owner_id,
-            price: sale.price,
-            token
-        });
-
-        sales.push(jsonSale);
+    let keys = contract.sales.toArray();
+    // Paginate through the keys using the fromIndex and limit
+    for (let i = 0; i < keys.length; i++) {
+        // get the token object from the keys
+        let jsonToken = internalGetSale({contract, sale_id: keys[i][0]});
+        sales.push(jsonToken);
     }
-
     return sales;
 }
 
@@ -100,4 +87,38 @@ export function internalOffer({contract, sale_id}: {contract: NFTContract, sale_
     near.promiseBatchActionTransfer(promise, price);
 
     // Remove sale
+    internalRemoveSale({contract, sale_id});
+}
+
+export function internalRemoveSale({contract, sale_id}: {contract: NFTContract, sale_id: string}): Sale {
+    let sale = contract.sales.remove(sale_id) as Sale;
+    if (sale == null) {
+        near.panicUtf8("No sale");
+    }
+
+    let byOwnerId = restoreOwners(contract.saleByOwnerId.get(sale.owner_id));
+    if (byOwnerId == null) {
+        near.panicUtf8("No sale by owner");
+    }
+    byOwnerId.remove(sale_id);
+    if (byOwnerId.isEmpty()) {
+        contract.saleByOwnerId.remove(sale.owner_id);
+    } else {
+        contract.saleByOwnerId.set(sale.owner_id, byOwnerId);
+    }
+
+    return sale;
+}
+
+export function intrenalUpdatePrice({contract, sale_id, price}: {contract: NFTContract, sale_id: string, price: string}): Sale {
+    let sale = contract.sales.get(sale_id) as Sale;
+    if(sale == null) near.panicUtf8("Not found sale");
+    if (sale.owner_id !== near.predecessorAccountId()) near.panicUtf8("Unauthorized");
+    let newPrice = BigInt(price);
+    if (newPrice.valueOf() <= 0) near.panicUtf8("New price must be greater than 0");
+    sale.price = newPrice.toString();
+
+    contract.sales.set(sale_id, sale);
+
+    return sale;
 }

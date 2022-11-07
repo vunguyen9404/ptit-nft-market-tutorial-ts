@@ -1256,22 +1256,15 @@ function internalGetSales({
   contract
 }) {
   let sales = [];
-  for (let i = 0; i < contract.sales.keys.length; i++) {
-    let saleId = contract.sales.keys[i];
-    let sale = contract.sales.get(saleId);
-    let tokenMetadata = contract.tokenMetadataById.get(sale.token_id);
-    let token = new JsonToken({
-      tokenId: sale.token_id,
-      ownerId: sale.owner_id,
-      metadata: tokenMetadata
+  let keys = contract.sales.toArray();
+  // Paginate through the keys using the fromIndex and limit
+  for (let i = 0; i < keys.length; i++) {
+    // get the token object from the keys
+    let jsonToken = internalGetSale({
+      contract,
+      sale_id: keys[i][0]
     });
-    let jsonSale = new JsonSale({
-      saleId,
-      ownerId: sale.owner_id,
-      price: sale.price,
-      token
-    });
-    sales.push(jsonSale);
+    sales.push(jsonToken);
   }
   return sales;
 }
@@ -1321,6 +1314,46 @@ function internalOffer({
   // Transfer NEAR to owner
   const promise = promiseBatchCreate(sale.owner_id);
   promiseBatchActionTransfer(promise, price);
+
+  // Remove sale
+  internalRemoveSale({
+    contract,
+    sale_id
+  });
+}
+function internalRemoveSale({
+  contract,
+  sale_id
+}) {
+  let sale = contract.sales.remove(sale_id);
+  if (sale == null) {
+    panicUtf8("No sale");
+  }
+  let byOwnerId = restoreOwners(contract.saleByOwnerId.get(sale.owner_id));
+  if (byOwnerId == null) {
+    panicUtf8("No sale by owner");
+  }
+  byOwnerId.remove(sale_id);
+  if (byOwnerId.isEmpty()) {
+    contract.saleByOwnerId.remove(sale.owner_id);
+  } else {
+    contract.saleByOwnerId.set(sale.owner_id, byOwnerId);
+  }
+  return sale;
+}
+function intrenalUpdatePrice({
+  contract,
+  sale_id,
+  price
+}) {
+  let sale = contract.sales.get(sale_id);
+  if (sale == null) panicUtf8("Not found sale");
+  if (sale.owner_id !== predecessorAccountId()) panicUtf8("Unauthorized");
+  let newPrice = BigInt(price);
+  if (newPrice.valueOf() <= 0) panicUtf8("New price must be greater than 0");
+  sale.price = newPrice.toString();
+  contract.sales.set(sale_id, sale);
+  return sale;
 }
 
 function internalMint({
@@ -1512,12 +1545,21 @@ let NFTContract = (_dec = NearBindgen({}), _dec2 = initialize({
     sale_id
   }) {
     assertOneYocto();
+    internalRemoveSale({
+      contract: this,
+      sale_id
+    });
   }
   update_price({
     sale_id,
     price
   }) {
     assertOneYocto();
+    intrenalUpdatePrice({
+      contract: this,
+      sale_id,
+      price
+    });
   }
   offer({
     sale_id
