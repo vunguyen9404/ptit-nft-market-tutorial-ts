@@ -112,12 +112,14 @@ export function internalRemoveSale({contract, sale_id}: {contract: NFTContract, 
 
 export function intrenalUpdatePrice({contract, sale_id, price}: {contract: NFTContract, sale_id: string, price: string}): Sale {
     let sale = contract.sales.get(sale_id) as Sale;
+
     if(sale == null) near.panicUtf8("Not found sale");
     if (sale.owner_id !== near.predecessorAccountId()) near.panicUtf8("Unauthorized");
+    
     let newPrice = BigInt(price);
     if (newPrice.valueOf() <= 0) near.panicUtf8("New price must be greater than 0");
-    sale.price = newPrice.toString();
 
+    sale.price = newPrice.toString();
     contract.sales.set(sale_id, sale);
 
     return sale;

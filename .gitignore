@@ -8,6 +8,7 @@ node_modules
 # build
 /out
 /dist
+/frontend/.parcel-cache
 
 # keys
 /templates/react/neardev
